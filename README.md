@@ -14,7 +14,7 @@
 - Predictive failure forecast, federated-learning counter, copilot command bar
 - Production stack: ViT + EfficientNet-V2 vision, temporal Graph-RAG, Redpanda, post-quantum envelopes, OpenTelemetry/Prometheus/Grafana, Docker + Helm
 
-Live demo (after you enable GitHub Pages): `https://<your-username>.github.io/<repo-name>/`
+Live demo (after you enable GitHub Pages): `https://nikhil-creat.github.io/corona/`
 
 | Path | What it is |
 |---|---|
