@@ -1,0 +1,19 @@
+# docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
+# Requires: NVIDIA driver + NVIDIA Container Toolkit. Mount trained weights at ./models.
+services:
+  vision-edge:
+    build:
+      context: .
+      dockerfile: infra/docker/vision-gpu.Dockerfile
+    environment:
+      VISION_BACKEND: torch
+      VISION_WEIGHTS: /models/hybrid_spatialnet.pt
+      RTSP_URLS: ${RTSP_URLS:-}
+    volumes: ["./models:/models:ro"]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]

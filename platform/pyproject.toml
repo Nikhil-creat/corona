@@ -1,0 +1,14 @@
+[project]
+name = "corona"
+version = "1.0.0"
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+pythonpath = [".", "backend"]
+testpaths = ["ai_core/tests", "security/tests", "backend/tests"]
+env = ["USE_IN_MEMORY=true", "EMBEDDED_WORKER=true", "ENV=test"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"

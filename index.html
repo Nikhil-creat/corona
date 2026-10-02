@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Corona — Self-Healing Spatial Digital Twin</title>
+<meta name="description" content="Corona: autonomous cyber-physical spatial intelligence. Live 3D digital twin with an in-browser self-healing agent swarm.">
+<style>
+:root{--bg:#03050b;--p:rgba(10,16,32,.78);--ln:#1b2a4a;--c:#38e8ff;--a:#ffc24b;--r:#ff5d6c;--g:#3dffa8;--t:#dbe7ff;--m:#7f93b8}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);color:var(--t);font:13px/1.45 ui-sans-serif,system-ui,sans-serif;overflow:hidden}
+canvas{position:fixed;inset:0;width:100%;height:100%;touch-action:none}
+.p{position:fixed;background:var(--p);border:1px solid var(--ln);border-radius:12px;backdrop-filter:blur(10px);padding:10px;box-shadow:0 0 24px rgba(56,232,255,.08)}
+h1{margin:0;font-size:18px;letter-spacing:.14em}h1 b{color:var(--c);text-shadow:0 0 12px var(--c)}
+h3{margin:0 0 6px;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--m)}
+#top{top:max(10px,env(safe-area-inset-top));left:10px;right:10px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.k{text-align:center;min-width:64px}.k b{display:block;font:600 17px ui-monospace,monospace;color:var(--c)}.k span{font-size:9px;color:var(--m);text-transform:uppercase}
+#left{top:96px;left:10px;width:230px;max-height:calc(100% - 210px);overflow:auto}
+#right{top:96px;right:10px;width:310px;max-height:calc(100% - 210px);overflow:auto}
+#bot{bottom:max(10px,env(safe-area-inset-bottom));left:10px;right:10px}
+#cmd{width:100%;background:#050a16;border:1px solid var(--ln);border-radius:8px;color:var(--t);padding:9px;font:12px ui-monospace,monospace}
+.chips{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}.chip,button{background:#0a1530;border:1px solid var(--ln);color:var(--t);border-radius:999px;padding:4px 10px;font-size:11px;cursor:pointer}
+button:hover{border-color:var(--c)}.ok{background:var(--g);color:#001;border:0;font-weight:700}.no{background:var(--r);color:#001;border:0;font-weight:700}
+.n{display:flex;justify-content:space-between;padding:3px 6px;border-radius:6px;cursor:pointer;font-family:ui-monospace,monospace;font-size:11px}.n:hover,.n.s{background:#0e1d3d}
+.d{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+.tr{border-left:2px solid var(--ln);padding:2px 0 2px 8px;margin:3px 0;font-size:11px}.tr b{color:var(--c)}.tr.e{border-color:var(--a)}.tr.r{border-color:var(--g)}
+#appr{top:50%;left:50%;transform:translate(-50%,-50%);width:min(92vw,380px);border-color:var(--a);display:none;z-index:9}
+@media(max-width:820px){#left{display:none}#right{top:auto;bottom:112px;width:auto;left:10px;right:10px;max-height:34%}#top{gap:8px}}
+</style></head><body>
+<canvas id="c"></canvas>
+<div class="p" id="top">
+ <div><h1>CORONA<b>●</b></h1><div style="color:var(--m);font-size:10px">SELF-HEALING SPATIAL DIGITAL TWIN</div></div>
+ <div class="k"><b id="k1">0</b><span>anomalies</span></div><div class="k"><b id="k2">0</b><span>auto-healed</span></div>
+ <div class="k"><b id="k3">–</b><span>MTTR s</span></div><div class="k"><b id="k4">0</b><span>awaiting you</span></div>
+ <div class="k"><b id="k5">v1</b><span>federated model</span></div><div class="k"><b id="k6">0%</b><span>grid risk</span></div>
+ <div style="color:var(--g);font-size:11px">🔒 X25519+ML-KEM link <i style="color:var(--m)">(simulated)</i></div>
+</div>
+<div class="p" id="left"><h3>Facility nodes</h3><div id="nl"></div><h3 style="margin-top:10px">Federated edge</h3><div id="fl" style="font-size:11px;color:var(--m)"></div></div>
+<div class="p" id="right"><h3 id="it">Select a node</h3><div id="ib" style="color:var(--m)">Tap a sphere or a list item. Agent reasoning streams here.</div><div id="tr"></div></div>
+<div class="p" id="appr"></div>
+<div class="p" id="bot"><input id="cmd" autocomplete="off" placeholder="Corona Copilot › try: inject thermal N-03 · inject crack · status · help">
+<div class="chips" id="chips"></div></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+"use strict";
+const $=s=>document.querySelector(s),sleep=ms=>new Promise(r=>setTimeout(r,ms)),uid=()=>Math.random().toString(16).slice(2,10);
+const NM=["Power Core","Cooling A","Cooling B","Compute 1","Compute 2","Turbine","Pump","Crane","Conveyor","Switchgear","Transformer","Control"];
+const CR=[.95,.8,.8,.7,.7,.9,.6,.4,.5,.85,.9,.75];
+const DEP=[[2,1],[3,1],[4,2],[5,3],[6,1],[7,2],[8,6],[9,6],[10,11],[1,10],[12,10],[4,12]];
+const LBL={thermal:"thermal_overheat",bearing:"bearing_wear",crack:"structural_crack",electrical:"electrical_fault"};
+const KW={thermal_overheat:"thermal",bearing_wear:"bearing",structural_crack:"structural",electrical_fault:"electrical"};
+const ACT={throttle_load:{k:"percent",lo:10,hi:90,ph:0},schedule_inspection:{k:"hours",lo:1,hi:168,ph:0},isolate_node:{k:"grace_s",lo:0,hi:300,ph:1},emergency_shutdown:{k:"grace_s",lo:0,hi:60,ph:1}};
+const KB=[["TSM-4.1","thermal","throttle_load","Above 85°C throttle load 10–90%."],["TSM-4.3","thermal","emergency_shutdown","Above 105°C controlled shutdown, grace ≤60 s, signed approval."],
+["RMG-2.2","bearing","schedule_inspection","Bearing wear >6 mm/s: inspect within 1–168 h."],["RMG-2.5","bearing","isolate_node","Severity >0.7: isolate, grace 0–300 s."],
+["SIP-7.1","structural","isolate_node","Confirmed crack: isolate ≤30 s, never throttle."],["SIP-7.2","structural","schedule_inspection","Minor stress: inspect within 12 h."],
+["ESL-1.4","electrical","isolate_node","Electrical fault: isolate, grace ≤15 s."]];
+const policy=(l,s)=>l=="thermal_overheat"?(s>.9?["emergency_shutdown",30]:["throttle_load",Math.round(40+s*70)]):l=="bearing_wear"?(s>.7?["isolate_node",60]:["schedule_inspection",Math.round(72-s*60)]):l=="structural_crack"?(s>.6?["isolate_node",30]:["schedule_inspection",12]):["isolate_node",15];
+const N=NM.map((n,i)=>{const a=i/12*Math.PI*2;return{i,id:"N-"+String(i+1).padStart(2,"0"),n,cr:CR[i],x:Math.cos(a)*9,z:Math.sin(a)*9,t:55+Math.random()*8,v:2,s:32,h:[],f:null,cool:0,st:"nominal",busy:0,heat:0,log:[]}});
+const ST={an:0,heal:0,mt:[],fl:1},pend=new Map(),used=new Set();let sel=null,key=null;
+const dependents=i=>{const seen=new Set(),q=[i+1];while(q.length){const c=q.pop();DEP.forEach(([d,p])=>{if(p===c&&!seen.has(d)){seen.add(d);q.push(d)}})}return seen.size};
+// ── simulation ──
+function fault(n,l,peak){if(n.f)return false;n.f={l,left:24,peak:peak??.55+Math.random()*.43,age:0};return true}
+function tick(){for(const n of N){
+ n.t+=(Math.random()-.5)*1.1+(58-n.t)*.05;n.v+=(Math.random()-.5)*.2+(2.2-n.v)*.08;n.s+=(Math.random()-.5)*.9+(32-n.s)*.05;
+ if(!n.f&&!n.cool&&Math.random()<.0012)fault(n,Object.values(LBL)[Math.random()*4|0]);
+ if(n.cool)n.cool--;
+ if(n.f){const f=n.f;f.age++;const sev=Math.min(f.peak,f.peak*f.age/10);f.sev=sev;
+  if(f.l=="thermal_overheat"||f.l=="electrical_fault")n.t+=3.2*f.peak;else if(f.l=="bearing_wear")n.v+=.9*f.peak;else{n.s+=3.8*f.peak;n.v+=.25*f.peak}
+  if(--f.left<=0&&!n.busy){n.f=null;n.cool=60}
+  if(sev>=.4&&!n.busy&&!f.seen){f.seen=1;ST.an++;swarm(n,f.l,sev,Math.min(.99,.45+sev*.5+Math.random()*.08-.04))}}
+ n.t=Math.min(n.t,150);n.s=Math.min(n.s,140);n.v=Math.min(n.v,40);
+ n.h.push(n.t);if(n.h.length>60)n.h.shift();n.heat=Math.min(1,Math.max(n.t/115,n.s/100,n.v/12))}
+ ui()}
+// ── agent swarm ──
+function tr(n,th,ag,msg,k=""){n.log.push({th,ag,msg,k});if(n.log.length>40)n.log.shift();if(sel===n)itr()}
+async function swarm(n,label,sev,conf){
+ n.busy=1;const th=uid(),t0=Date.now(),L=(a,m,k)=>tr(n,th,a,m,k);n.st="investigating";
+ try{await sleep(500);
+ const cor=(label=="thermal_overheat"||label=="electrical_fault")&&n.t>=85||label=="structural_crack"&&n.s>=70||label=="bearing_wear"&&n.v>=6;
+ if(conf<.5||!(cor||conf>=.85)){L("Validator","false positive – closed");n.st="nominal";return}
+ L("Validator",`confirmed · conf ${conf.toFixed(2)} · sensor corroboration ${cor}`);await sleep(550);
+ const ev=KB.filter(e=>e[1]==KW[label]);
+ if(!ev.length){L("Compliance RAG","no authoritative evidence → abstain & escalate","e");n.st="escalated";return}
+ L("Compliance RAG",`${ev.length} manual passages: ${ev.map(e=>e[0]).join(", ")}`);await sleep(550);
+ const dep=dependents(n.i),risk=.45*sev+.15*conf+.2*(.5*n.cr+.5*Math.min(dep/5,1))+.1*.4+.1*0;
+ L("Risk",`risk ${risk.toFixed(2)} · blast radius ${dep} dependents`);await sleep(500);
+ let [a,p]=policy(label,sev);L("Planner",`${a}(${ACT[a].k}=${p}) – initial proposal`);await sleep(500);
+ let sp=ACT[a];if(p<sp.lo||p>sp.hi){L("Verifier",`${sp.k}=${p} outside [${sp.lo},${sp.hi}] ✗`,"e");p=Math.min(sp.hi,Math.max(sp.lo,p));await sleep(450);L("Planner",`self-corrected → ${sp.k}=${p}`)}
+ const cites=KB.filter(e=>e[1]==KW[label]&&e[2]==a).map(e=>e[0]);
+ if(!cites.length){L("Verifier","no manual supports this action → escalate","e");n.st="escalated";return}
+ if(a=="throttle_load"&&n.t-.45*p>=85){L("Verifier","dry-run: still >85°C","e");n.st="escalated";return}
+ L("Verifier",`bounds ✓ evidence ✓ (${cites.join(", ")}) dry-run ✓`);await sleep(450);
+ if(sp.ph||risk>=.6){n.st="awaiting";const nonce=uid()+uid();
+  const dec=await new Promise(res=>{pend.set(th,{n,a,p,risk,nonce,res,cites});L("HITL Gate",`signed approval required for ${a} (risk ${risk.toFixed(2)})`,"e");appr()});
+  pend.delete(th);appr();
+  if(!dec.ok){L("HITL Gate",`rejected by operator`,"e");n.st="escalated";return}
+  L("HITL Gate",`approved · sig ${dec.sig} · nonce single-use`,"r");await sleep(350)}
+ n.f=null;n.cool=60;n.t=Math.max(58,n.t-25);n.v=2.2;n.s=Math.min(n.s,34);
+ const sec=(Date.now()-t0)/1e3;ST.heal++;ST.mt.push(sec);n.st="healed";L("Executor",`${a} dispatched (simulated actuator) · ${sec.toFixed(1)}s`,"r");
+ setTimeout(()=>{if(n.st=="healed")n.st="nominal"},6000)
+ }finally{n.busy=0;setTimeout(()=>{if(n.st=="escalated"||n.st=="investigating")n.st="nominal"},8000)}}
+async function sign(th,nonce,ok){if(!crypto.subtle)return"n/a";key=key||await crypto.subtle.generateKey({name:"HMAC",hash:"SHA-256"},false,["sign"]);
+ const s=await crypto.subtle.sign("HMAC",key,new TextEncoder().encode(`${th}|${nonce}|${+ok}`));return[...new Uint8Array(s)].slice(0,8).map(b=>b.toString(16).padStart(2,"0")).join("")}
+function appr(){const el=$("#appr"),e=[...pend.entries()][0];if(!e){el.style.display="none";return}
+ const[th,r]=e;el.style.display="block";el.innerHTML=`<h3>Human approval · ${r.n.id}</h3><b style="color:var(--a)">${r.a}</b> ${ACT[r.a].k}=${r.p}<br><span style="color:var(--m)">risk ${r.risk.toFixed(2)} · ${ACT[r.a].ph?"physical intervention":"software action"} · cites ${r.cites.join(", ")}</span>
+ <div class="chips"><button class="ok" id="ay">Sign & approve</button><button class="no" id="an">Reject</button></div>`;
+ const go=async ok=>{if(used.has(r.nonce))return;used.add(r.nonce);r.res({ok,sig:await sign(th,r.nonce,ok)})};$("#ay").onclick=()=>go(true);$("#an").onclick=()=>go(false)}
+// ── UI ──
+const col=n=>({nominal:"#38e8ff",investigating:"#38e8ff",awaiting:"#ffc24b",healed:"#3dffa8",escalated:"#ff5d6c"}[n.st]);
+function forecast(n){const h=n.h.slice(-25);if(h.length<8)return"…";const m=h.length,sx=m*(m-1)/2,sy=h.reduce((a,b)=>a+b),sxy=h.reduce((a,b,i)=>a+i*b,0),sxx=h.reduce((a,_,i)=>a+i*i,0);
+ const b=(m*sxy-sx*sy)/(m*sxx-sx*sx||1);if(b<=.2)return"stable";const eta=(85-h[m-1])/b*.5;return eta<=0?"threshold exceeded":`~${eta.toFixed(0)}s to 85°C`}
+function ui(){$("#k1").textContent=ST.an;$("#k2").textContent=ST.heal;$("#k3").textContent=ST.mt.length?(ST.mt.reduce((a,b)=>a+b)/ST.mt.length).toFixed(1):"–";$("#k4").textContent=pend.size;$("#k5").textContent="v"+ST.fl;
+ $("#k6").textContent=Math.round(100*N.reduce((a,n)=>a+n.heat*n.cr,0)/N.reduce((a,n)=>a+n.cr,0))+"%";
+ $("#nl").innerHTML=N.map(n=>`<div class="n ${n===sel?"s":""}" data-i="${n.i}"><span><i class="d" style="background:${col(n)}"></i>${n.id} ${n.n}</span><span>${n.t.toFixed(0)}°</span></div>`).join("");
+ $("#fl").innerHTML=`Edge clients: 3 · global v${ST.fl}<br>FedAvg + clipping + DP noise`;
+ if(sel){$("#it").textContent=`${sel.id} · ${sel.n}`;$("#ib").innerHTML=`<span style="font-family:ui-monospace,monospace;color:var(--t)">T ${sel.t.toFixed(1)}°C · V ${sel.v.toFixed(1)} mm/s · S ${sel.s.toFixed(0)}%</span><br>state: <b style="color:${col(sel)}">${sel.st}</b> · forecast: ${forecast(sel)}
+ <svg viewBox="0 0 100 30" style="width:100%;height:46px"><polyline fill="none" stroke="#38e8ff" stroke-width="1" vector-effect="non-scaling-stroke" points="${sel.h.map((v,i)=>`${i/59*100},${30-Math.min(v/130,1)*28}`).join(" ")}"/></svg>`}}
+function itr(){$("#tr").innerHTML=sel?sel.log.slice(-14).map(l=>`<div class="tr ${l.k}"><b>${l.ag}</b> ${l.msg}</div>`).join(""):""}
+function pick(n){sel=n;ui();itr()}
+$("#nl").onclick=e=>{const d=e.target.closest(".n");if(d)pick(N[+d.dataset.i])};
+// ── copilot ──
+function cmd(s){s=s.trim().toLowerCase();if(!s)return;const say=m=>{const n=sel||N[0];tr(n,"c","Copilot",m)};let m;
+ if(m=s.match(/inject\s+(thermal|bearing|crack|electrical)(?:\s+n-?(\d+))?/)){const n=m[2]?N[+m[2]-1]:sel||N[Math.random()*12|0];if(!n)return say("unknown node");pick(n);say(fault(n,LBL[m[1]],.85)?`injected ${LBL[m[1]]} on ${n.id}`:`${n.id} already faulted`)}
+ else if(s=="status")say(`${N.filter(n=>n.st!="nominal").length} nodes active · ${ST.an} anomalies · ${ST.heal} healed · ${pend.size} awaiting approval`);
+ else if(s=="approve"||s=="reject"){const b=$(s=="approve"?"#ay":"#an");b?b.click():say("nothing pending")}
+ else if(s.startsWith("select n-")){const n=N[parseInt(s.slice(8))-1];n?pick(n):0}
+ else say("commands: inject <thermal|bearing|crack|electrical> [n-xx] · status · approve · reject · select n-xx")}
+$("#cmd").onkeydown=e=>{if(e.key=="Enter"){cmd(e.target.value);e.target.value=""}};
+$("#chips").innerHTML=["thermal","bearing","crack","electrical"].map(k=>`<button data-k="${k}">⚡ inject ${k}</button>`).join("")+`<button data-k="status">status</button>`;
+$("#chips").onclick=e=>{const k=e.target.dataset.k;if(k)cmd(k=="status"?k:"inject "+k)};
+// ── 3D ──
+const cv=$("#c"),R=new THREE.WebGLRenderer({canvas:cv,antialias:true,alpha:true});R.setPixelRatio(Math.min(devicePixelRatio,2));
+const S=new THREE.Scene();S.fog=new THREE.FogExp2(0x03050b,.02);const C=new THREE.PerspectiveCamera(50,1,.1,200);
+S.add(new THREE.AmbientLight(0x6688aa,.7));const pl=new THREE.PointLight(0x38e8ff,1.4,80);pl.position.set(0,18,0);S.add(pl);
+const grid=new THREE.GridHelper(50,50,0x1b3a66,0x0c1830);S.add(grid);
+const cg=document.createElement("canvas");cg.width=cg.height=64;const g=cg.getContext("2d"),gr=g.createRadialGradient(32,32,0,32,32,32);gr.addColorStop(0,"rgba(255,255,255,1)");gr.addColorStop(1,"rgba(255,255,255,0)");g.fillStyle=gr;g.fillRect(0,0,64,64);const tex=new THREE.CanvasTexture(cg);
+const geo=new THREE.IcosahedronGeometry(1,2);
+N.forEach(n=>{n.m=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({color:0x0a1a33,emissive:0x38e8ff,emissiveIntensity:.5,metalness:.6,roughness:.3,wireframe:false}));n.m.position.set(n.x,1.3,n.z);n.m.userData.n=n;S.add(n.m);
+ n.gl=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,color:0x38e8ff,transparent:true,opacity:.3,depthWrite:false,blending:THREE.AdditiveBlending}));n.gl.scale.set(9,9,1);n.gl.position.set(n.x,.05,n.z);S.add(n.gl)});
+const lm=new THREE.LineBasicMaterial({color:0x1d4a80,transparent:true,opacity:.7});
+DEP.forEach(([d,p])=>{const a=N[d-1],b=N[p-1];S.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(a.x,1.3,a.z),new THREE.Vector3(b.x,1.3,b.z)]),lm))});
+let th=.6,ph=.95,rad=30,drag=0,moved=0,px=0,py=0,auto=1;
+cv.onpointerdown=e=>{drag=1;moved=0;px=e.clientX;py=e.clientY;auto=0};
+addEventListener("pointerup",e=>{if(drag&&moved<5){const rc=new THREE.Raycaster(),v=new THREE.Vector2(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight)*2+1);rc.setFromCamera(v,C);const h=rc.intersectObjects(N.map(n=>n.m))[0];if(h)pick(h.object.userData.n)}drag=0});
+addEventListener("pointermove",e=>{if(!drag)return;moved+=Math.abs(e.clientX-px)+Math.abs(e.clientY-py);th-=(e.clientX-px)*.007;ph=Math.min(1.5,Math.max(.25,ph-(e.clientY-py)*.005));px=e.clientX;py=e.clientY});
+cv.onwheel=e=>{rad=Math.min(55,Math.max(14,rad+e.deltaY*.02))};
+function rs(){R.setSize(innerWidth,innerHeight);C.aspect=innerWidth/innerHeight;C.updateProjectionMatrix()}addEventListener("resize",rs);rs();
+const c1=new THREE.Color(0x38e8ff),c2=new THREE.Color(0xffc24b),c3=new THREE.Color(0xff3d4f),tc=new THREE.Color();
+(function loop(t){requestAnimationFrame(loop);if(auto)th+=.0015;
+ C.position.set(Math.sin(th)*Math.sin(ph)*rad,Math.cos(ph)*rad,Math.cos(th)*Math.sin(ph)*rad);C.lookAt(0,0,0);
+ for(const n of N){const h=n.heat;tc.copy(h<.5?c1.clone().lerp(c2,h*2):c2.clone().lerp(c3,(h-.5)*2));
+  const stc=n.st=="awaiting"?c2:n.st=="healed"?new THREE.Color(0x3dffa8):null;if(stc)tc.copy(stc);
+  const pulse=n.st=="nominal"?0:.5+.5*Math.sin(t*.008);n.m.material.emissive.copy(tc);n.m.material.emissiveIntensity=.35+h*.9+pulse*.6;
+  n.gl.material.color.copy(tc);n.gl.material.opacity=.12+h*.6;n.m.scale.setScalar(n===sel?1.35:1);n.m.rotation.y=t*.0006}
+ R.render(S,C)})(0);
+setInterval(tick,500);setInterval(()=>{ST.fl++},30000);setTimeout(()=>{pick(N[0]);cmd("inject thermal n-01")},1800);
+</script></body></html>

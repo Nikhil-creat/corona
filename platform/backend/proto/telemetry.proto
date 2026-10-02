@@ -1,0 +1,16 @@
+syntax = "proto3";
+package aether.v1;
+
+message TelemetryPacket {
+  string node_id = 1;
+  double ts = 2;
+  double temperature_c = 3;
+  double vibration_mm_s = 4;
+  double stress_pct = 5;
+}
+message Ack { uint64 accepted = 1; }
+
+service TelemetryIngest {
+  // Client-streaming: edge gateways push packets over a single long-lived HTTP/2 stream.
+  rpc StreamTelemetry (stream TelemetryPacket) returns (Ack);
+}

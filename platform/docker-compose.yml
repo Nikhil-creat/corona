@@ -1,0 +1,188 @@
+name: corona
+
+x-python-env: &python-env
+  ENV: ${ENV:-dev}
+  KAFKA_BOOTSTRAP: redpanda:9092
+  REDIS_URL: redis://redis:6379/0
+  POSTGRES_DSN: postgresql://${POSTGRES_USER:-aether}:${POSTGRES_PASSWORD:-change-me-postgres}@postgres:5432/${POSTGRES_DB:-aether}
+  NEO4J_URI: bolt://neo4j:7687
+  NEO4J_USER: ${NEO4J_USER:-neo4j}
+  NEO4J_PASSWORD: ${NEO4J_PASSWORD:-change-me-neo4j}
+  OTEL_ENDPOINT: http://otel-collector:4318
+  API_KEYS: ${API_KEYS:-change-me-api-key}
+  CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+  APPROVAL_MODE: ${APPROVAL_MODE:-token}
+  APPROVER_TOKENS: ${APPROVER_TOKENS:-ops-lead:change-me-approver-token}
+  APPROVER_PUBKEYS: ${APPROVER_PUBKEYS:-}
+  APPROVAL_HMAC_SECRET: ${APPROVAL_HMAC_SECRET:-change-me-hmac-secret-32-bytes-min}
+  HITL_RISK_THRESHOLD: ${HITL_RISK_THRESHOLD:-0.6}
+  EMBEDDING_BACKEND: ${EMBEDDING_BACKEND:-hashing}
+  RERANK_BACKEND: ${RERANK_BACKEND:-lexical}
+  VISION_BACKEND: ${VISION_BACKEND:-simulated}
+  EDGE_TICK_HZ: ${EDGE_TICK_HZ:-2}
+
+x-python-build: &python-build
+  context: .
+  dockerfile: infra/docker/python.Dockerfile
+  args:
+    WITH_VISION: ${WITH_VISION:-false}
+
+services:
+  # ───────────── application ─────────────
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+        NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:-ws://localhost:8000}
+        NEXT_PUBLIC_API_KEY: ${NEXT_PUBLIC_API_KEY:-change-me-api-key}
+    ports: ["3000:3000"]
+    depends_on: [api]
+    restart: unless-stopped
+
+  api:
+    build: *python-build
+    environment: { <<: *python-env, GRPC_ENABLED: "true" }
+    ports: ["8000:8000", "50051:50051"]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+    depends_on:
+      redpanda-init: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+      postgres: { condition: service_healthy }
+      neo4j: { condition: service_healthy }
+    restart: unless-stopped
+
+  worker:
+    build: *python-build
+    command: ["python", "-m", "ai_core.worker.main"]
+    environment: *python-env
+    depends_on:
+      redpanda-init: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+      postgres: { condition: service_healthy }
+      neo4j: { condition: service_healthy }
+    restart: unless-stopped
+
+  vision-edge:
+    build: *python-build
+    command: ["python", "-m", "ai_core.vision.edge_service"]
+    environment: *python-env
+    depends_on:
+      worker: { condition: service_started }
+    restart: unless-stopped
+
+  # ───────────── data & messaging ─────────────
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:v24.2.7
+    command:
+      - redpanda
+      - start
+      - --overprovisioned
+      - --smp=1
+      - --memory=768M
+      - --reserve-memory=0M
+      - --check=false
+      - --node-id=0
+      - --kafka-addr=internal://0.0.0.0:9092,external://0.0.0.0:19092
+      - --advertise-kafka-addr=internal://redpanda:9092,external://localhost:19092
+    ports: ["19092:19092"]
+    volumes: ["redpanda-data:/var/lib/redpanda/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -q 'Healthy:.*true'"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  redpanda-init:
+    image: docker.redpanda.com/redpandadata/redpanda:v24.2.7
+    depends_on:
+      redpanda: { condition: service_healthy }
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - >
+        for t in telemetry.raw anomalies.detected swarm.events approvals.requests approvals.decisions remediation.executed fl.updates fl.global;
+        do rpk -X brokers=redpanda:9092 topic create $$t -p 3 -r 1 || true; done
+    restart: "no"
+
+  redis:
+    image: redis:7.4-alpine
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "512mb", "--maxmemory-policy", "allkeys-lru"]
+    volumes: ["redis-data:/data"]
+    healthcheck: { test: ["CMD", "redis-cli", "ping"], interval: 5s, timeout: 3s, retries: 10 }
+    restart: unless-stopped
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-aether}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-aether}
+    volumes: ["pg-data:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-aether} -d ${POSTGRES_DB:-aether}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  neo4j:
+    image: neo4j:5.24-community
+    environment:
+      NEO4J_AUTH: ${NEO4J_USER:-neo4j}/${NEO4J_PASSWORD:-change-me-neo4j}
+      NEO4J_server_memory_heap_max__size: 768m
+    ports: ["7474:7474", "7687:7687"]
+    volumes: ["neo4j-data:/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "cypher-shell -u ${NEO4J_USER:-neo4j} -p ${NEO4J_PASSWORD:-change-me-neo4j} 'RETURN 1' || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+    restart: unless-stopped
+
+  # ───────────── observability ─────────────
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.111.0
+    command: ["--config=/etc/otel/config.yaml"]
+    volumes: ["./infra/otel/config.yaml:/etc/otel/config.yaml:ro"]
+    depends_on: [jaeger]
+    restart: unless-stopped
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.62.0
+    environment: { COLLECTOR_OTLP_ENABLED: "true" }
+    ports: ["16686:16686"]
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v2.55.0
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prom-data:/prometheus
+    ports: ["9090:9090"]
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.3.0
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-change-me-grafana}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports: ["3001:3000"]
+    depends_on: [prometheus]
+    restart: unless-stopped
+
+volumes:
+  redpanda-data:
+  redis-data:
+  pg-data:
+  neo4j-data:
+  prom-data:
+  grafana-data:

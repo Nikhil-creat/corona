@@ -1,0 +1,5 @@
+torch>=2.4
+torchvision>=0.19
+opencv-python-headless>=4.10
+sentence-transformers>=3.0
+# GPU/TensorRT: install torch-tensorrt matching your CUDA (see infra/docker/vision-gpu.Dockerfile)

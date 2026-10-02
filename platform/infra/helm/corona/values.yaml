@@ -1,0 +1,48 @@
+image:
+  registry: ghcr.io/your-org
+  tag: "1.0.0"
+  pullPolicy: IfNotPresent
+
+# Backing services are expected to be managed (Strimzi/Redpanda operator, Bitnami Redis Cluster, CloudNativePG+pgvector, Neo4j).
+config:
+  KAFKA_BOOTSTRAP: redpanda.data.svc:9092
+  REDIS_URL: redis://redis-cluster.data.svc:6379/0
+  REDIS_CLUSTER: "true"
+  NEO4J_URI: bolt://neo4j.data.svc:7687
+  OTEL_ENDPOINT: http://otel-collector.observability.svc:4318
+  APPROVAL_MODE: ed25519
+  HITL_RISK_THRESHOLD: "0.6"
+  ENV: prod
+
+# Reference an existing Secret containing: POSTGRES_DSN, NEO4J_PASSWORD, API_KEYS, APPROVAL_HMAC_SECRET, APPROVER_PUBKEYS
+existingSecret: corona-secrets
+
+services:
+  api:
+    image: corona-python
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    port: 8000
+    replicas: 3
+    probe: /healthz
+    resources: { requests: { cpu: 250m, memory: 384Mi }, limits: { cpu: "1", memory: 1Gi } }
+    ingress: { enabled: true, host: api.aether.example.com }
+  worker:
+    image: corona-python
+    command: ["python", "-m", "ai_core.worker.main"]
+    port: 9101
+    replicas: 3
+    resources: { requests: { cpu: 250m, memory: 512Mi }, limits: { cpu: "1", memory: 1Gi } }
+  edge:
+    image: corona-vision
+    command: ["python", "-m", "ai_core.vision.edge_service"]
+    port: 9102
+    replicas: 1
+    # GPU: add  nvidia.com/gpu: 1  under limits (requires the NVIDIA device plugin) and use the vision-gpu image
+    resources: { requests: { cpu: 500m, memory: 1Gi }, limits: { cpu: "2", memory: 4Gi } }
+  frontend:
+    image: corona-frontend
+    port: 3000
+    replicas: 2
+    probe: /
+    resources: { requests: { cpu: 100m, memory: 192Mi }, limits: { cpu: 500m, memory: 512Mi } }
+    ingress: { enabled: true, host: twin.aether.example.com }

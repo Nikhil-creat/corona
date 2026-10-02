@@ -1,0 +1,13 @@
+{
+  "uid": "corona", "title": "Corona Overview", "schemaVersion": 39, "refresh": "5s", "time": {"from": "now-15m", "to": "now"},
+  "panels": [
+    {"id": 1, "type": "stat", "title": "Connected UI clients", "gridPos": {"x":0,"y":0,"w":6,"h":4}, "datasource": {"type":"prometheus","uid":"prometheus"},
+     "targets": [{"expr": "sum(aether_ws_clients)", "refId": "A"}]},
+    {"id": 2, "type": "timeseries", "title": "Edge anomalies / min by label", "gridPos": {"x":6,"y":0,"w":9,"h":8}, "datasource": {"type":"prometheus","uid":"prometheus"},
+     "targets": [{"expr": "sum by (label) (rate(aether_edge_anomalies_total[1m]) * 60)", "legendFormat": "{{label}}", "refId": "A"}]},
+    {"id": 3, "type": "timeseries", "title": "Swarm outcomes / min", "gridPos": {"x":15,"y":0,"w":9,"h":8}, "datasource": {"type":"prometheus","uid":"prometheus"},
+     "targets": [{"expr": "sum by (status) (rate(aether_swarm_runs_total[1m]) * 60)", "legendFormat": "{{status}}", "refId": "A"}]},
+    {"id": 4, "type": "timeseries", "title": "Edge packets / s", "gridPos": {"x":0,"y":4,"w":6,"h":4}, "datasource": {"type":"prometheus","uid":"prometheus"},
+     "targets": [{"expr": "sum(rate(aether_edge_frames_total[30s]))", "refId": "A"}]}
+  ]
+}
