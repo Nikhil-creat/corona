@@ -1,5 +1,19 @@
 # Corona — Self-Healing Spatial Digital Twin
 
+![License](https://img.shields.io/badge/license-MIT-38e8ff) ![Stack](https://img.shields.io/badge/stack-Next.js%20·%20FastAPI%20·%20LangGraph%20·%20Neo4j%20·%20Kafka-0a1530) ![Security](https://img.shields.io/badge/crypto-X25519%20%2B%20ML--KEM--768-3dffa8)
+
+**Built by [Nikhil Chary Sriramoju](https://github.com/Nikhil-creat)** · B.Tech CSE, Vaagdevi College of Engineering (2023–2027) · ML Engineer Intern @ Yuva Intern (NSDC) · Data Analytics Intern @ Thiranex
+· NASSCOM/Skill India Digital Hub (AI-Data Engineering & Cloud Infrastructure Analyst) · IBM SkillsBuild (AI Fundamentals) · Reliance Foundation (AI/ML Engineer Foundation)
+· [LinkedIn](https://in.linkedin.com/in/nikhil-chary-sriramoju-95041b38a)
+
+### Highlights
+- Human-approved **agentic AI swarm** (Validator → Compliance-RAG → Risk → Planner ⇄ Verifier → signed approval → Executor)
+- **Zero-hallucination contract:** no evidence → the swarm abstains; actions only from an allow-list with hard bounds
+- **Tamper-evident audit ledger** (SHA-256 hash chain, verify / tamper-test / export JSON)
+- **Autopilot toggle** for non-physical fixes; physical actions always need a signed human decision
+- Predictive failure forecast, federated-learning counter, copilot command bar
+- Production stack: ViT + EfficientNet-V2 vision, temporal Graph-RAG, Redpanda, post-quantum envelopes, OpenTelemetry/Prometheus/Grafana, Docker + Helm
+
 Live demo (after you enable GitHub Pages): `https://<your-username>.github.io/<repo-name>/`
 
 | Path | What it is |
